@@ -218,6 +218,15 @@ public class FastKeyboardView extends View {
         setAlpha(Math.max(1, Math.min(100, savedAlpha)) / 100f);
     }
 
+    @Override protected void onDraw(Canvas c){
+        super.onDraw(c);
+        float h=getHeight();
+        gap=dp(4);
+        keyH=Math.max(1f,h/6f);
+        suggestionH=0f;
+        drawKeyboard(c);
+    }
+
     private void txt(Canvas c,String s,float x,float y,float size,int color){
         p.setTypeface(Typeface.create("sans",Typeface.NORMAL));
         p.setTextSize(size);
@@ -673,14 +682,6 @@ public class FastKeyboardView extends View {
         private final Paint fp=new Paint(Paint.ANTI_ALIAS_FLAG);
         private final int color;
         FolderEmojiView(Context c,int color){super(c);this.color=color;setContentDescription("📁");}
-        @Override protected void onDraw(Canvas c){
-        super.onDraw(c);
-        float h=getHeight();
-        gap=dp(4);
-        keyH=Math.max(1f,h/6f);
-        suggestionH=0f;
-        drawKeyboard(c);
-    }
     }
 
     private float[] visibleRowBounds(){
