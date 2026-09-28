@@ -661,22 +661,28 @@ public class FastKeyboardView extends View {
     }
 
     private float[] visibleRowBounds(){
-        // The keyboard is always anchored to the bottom of this view.
-        // In resize mode the roller occupies its own strip above the keyboard;
-        // the view/window itself is resized, so the keyboard is never double-scaled.
-        float roller = resizeRollerOpen ? dp(RESIZE_ROLLER_DP) : 0f;
+        // Resize is an in-view operation. The view remains the normal IME height and
+        // the keyboard is always anchored to its bottom edge. When Resize is open,
+        // the roller occupies the top strip and the keyboard uses the remaining
+        // space, so no content is pushed below the device navigation bar.
         float viewH = Math.max(1f, getHeight());
-        float keyboardTopPx = roller;
-        float keyboardH = Math.max(1f, viewH - roller);
-        return new float[]{
-                keyboardTopPx/viewH,
-                (keyboardTopPx+0.162f*keyboardH)/viewH,
-                (keyboardTopPx+0.262f*keyboardH)/viewH,
-                (keyboardTopPx+0.424f*keyboardH)/viewH,
-                (keyboardTopPx+0.586f*keyboardH)/viewH,
-                (keyboardTopPx+0.748f*keyboardH)/viewH,
-                (keyboardTopPx+0.8875f*keyboardH)/viewH,
-                1f};
+        if(!resizeRollerOpen){
+            return new float[]{0f,0.162f,0.262f,0.424f,0.586f,0.748f,0.8875f,1f};
+        }
+        // Reserve the roller strip at the top. The keyboard height is controlled
+        // only from its top edge; its bottom is always exactly at viewH.
+        float roller = Math.min(dp(RESIZE_ROLLER_DP), viewH * 0.22f);
+        float available = Math.max(1f, viewH - roller);
+        float normalized = (keyboardScale - 0.70f) / 0.30f;
+        normalized = Math.max(0f, Math.min(1f, normalized));
+        float keyboardH = Math.max(viewH * 0.55f, available * (0.70f + 0.30f * normalized));
+        keyboardH = Math.min(available, keyboardH);
+        float keyboardTopPx = viewH - keyboardH;
+        // The roller stays immediately above the keyboard. If the resized keyboard
+        // is shorter, the unused area remains above it, never below it.
+        float[] rows={0f,0.162f,0.262f,0.424f,0.586f,0.748f,0.8875f,1f};
+        for(int i=0;i<rows.length;i++) rows[i]=(keyboardTopPx+rows[i]*keyboardH)/viewH;
+        return rows;
     }
 
     private void drawKeyboard(Canvas c){
@@ -722,10 +728,11 @@ public class FastKeyboardView extends View {
         txtBold(c,"Resize",x+alphaW/2,(top+bottom)/2,Math.min(18,(bottom-top)*.30f),NAVY);
 
         if(resizeRollerOpen){
-            // Separate roller strip above the keyboard; twice the previous roller height.
+            // The roller is a separate strip inside the fixed IME view, immediately
+            // above the keyboard. The keyboard bottom never moves.
             float fullTop=0f;
             float rollerBottom=top-dp(4);
-            float rollerH=dp(RESIZE_ROLLER_DP);
+            float rollerH=Math.min(dp(RESIZE_ROLLER_DP), getHeight()*0.22f);
             float rollerTop=Math.max(fullTop,rollerBottom-rollerH);
             float rl=dp(18), rr=getWidth()-dp(18), cy=(rollerTop+rollerBottom)/2f;
             key(c,rl-dp(8),rollerTop,rr+dp(8),rollerBottom,"",NAVY,false);
@@ -754,7 +761,7 @@ public class FastKeyboardView extends View {
         float[] b=visibleRowBounds();
         float top=b[0]*getHeight();
         float rollerBottom=top-dp(4);
-        float rollerH=dp(RESIZE_ROLLER_DP);
+        float rollerH=Math.min(dp(RESIZE_ROLLER_DP), getHeight()*0.22f);
         float rollerTop=Math.max(0f,rollerBottom-rollerH);
         float rl=dp(18), rr=getWidth()-dp(18), cy=(rollerTop+rollerBottom)/2f;
         if(x>=rl-dp(14)&&x<=rr+dp(14)&&y>=rollerTop-dp(10)&&y<=rollerBottom+dp(10)){

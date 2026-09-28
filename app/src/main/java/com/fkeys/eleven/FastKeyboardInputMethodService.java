@@ -143,25 +143,17 @@ public class FastKeyboardInputMethodService extends InputMethodService {
     }
 
     public void setKeyboardResizeMode(boolean open, float scale) {
+        // Keep the IME window anchored by Android. Do not resize the window itself:
+        // doing so can push the lower keyboard rows outside the available IME area.
+        // The keyboard view keeps its normal height; Resize only changes the drawn
+        // keyboard area from its top edge while its bottom edge stays fixed.
         keyboardScale = Math.max(0.70f, Math.min(1.0f, scale));
         if (keyboard == null) return;
-        int keyboardHeight = dp(380f * keyboardScale);
-        int rollerHeight = open ? dp(52f) : 0;
         ViewGroup.LayoutParams kp = keyboard.getLayoutParams();
-        if (kp == null) kp = new LinearLayout.LayoutParams(-1, keyboardHeight + rollerHeight);
+        if (kp == null) kp = new LinearLayout.LayoutParams(-1, dp(380));
         kp.width = ViewGroup.LayoutParams.MATCH_PARENT;
-        kp.height = keyboardHeight + rollerHeight;
+        kp.height = dp(380);
         keyboard.setLayoutParams(kp);
-        try {
-            android.app.Dialog dialog = getWindow();
-            if (dialog != null && dialog.getWindow() != null) {
-                WindowManager.LayoutParams wp = dialog.getWindow().getAttributes();
-                wp.width = WindowManager.LayoutParams.MATCH_PARENT;
-                wp.height = keyboardHeight + rollerHeight + (relatedBar != null && relatedBar.getVisibility() == View.VISIBLE ? dp(40) : 0);
-                wp.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
-                dialog.getWindow().setAttributes(wp);
-            }
-        } catch (Exception ignored) {}
         keyboard.requestLayout();
         keyboard.invalidate();
     }
