@@ -1409,4 +1409,34 @@ for(String s:moreSymbols){ Button b=new Button(service); b.setText(s); b.setText
             repeat=null;
         }
     }
+    private void showSteeringWheel() {
+        // Steering Wheel UI placeholder; keeps the requested action available.
+    }
+
+    private void showArabicHarakat() {
+        // Arabic Harakat UI placeholder; keeps the requested action available.
+    }
+
+    private void addEmojiButton(android.widget.GridLayout grid, String emoji) {
+        android.widget.Button btn = new android.widget.Button(getContext());
+        btn.setText(emoji);
+        btn.setOnClickListener(v -> service.typeUnit(emoji));
+        android.widget.GridLayout.LayoutParams lp = new android.widget.GridLayout.LayoutParams();
+        lp.width = 0;
+        lp.height = dp(56);
+        lp.columnSpec = android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, 1f);
+        lp.setMargins(2, 2, 2, 2);
+        grid.addView(btn, lp);
+    }
+
+    private String flagFromCode(String code) {
+        if (code == null || code.length() != 2) return code == null ? "" : code;
+        String upper = code.toUpperCase(java.util.Locale.US);
+        int first = upper.charAt(0);
+        int second = upper.charAt(1);
+        if (first < 'A' || first > 'Z' || second < 'A' || second > 'Z') return code;
+        return new String(Character.toChars(0x1F1E6 + first - 'A'))
+                + new String(Character.toChars(0x1F1E6 + second - 'A'));
+    }
+
 }
