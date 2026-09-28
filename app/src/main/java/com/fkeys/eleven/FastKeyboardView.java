@@ -29,6 +29,8 @@ public class FastKeyboardView extends View {
     private boolean equalUnderscoreNext = true;
     private boolean resizeRollerOpen = false;
     private float keyboardScale = 1.0f;
+    private static final float BASE_KEYBOARD_DP = 380f;
+    private static final float RESIZE_ROLLER_DP = 52f;
     private boolean alifLongPressTriggered = false;
     private final Runnable alifLongPressAction = () -> {
         alifLongPressTriggered = true;
@@ -659,13 +661,22 @@ public class FastKeyboardView extends View {
     }
 
     private float[] visibleRowBounds(){
-        // When open, the resize roller occupies a separate strip above the keyboard.
-        float k=Math.max(0.70f,Math.min(1.0f,keyboardScale));
-        float topPad = resizeRollerOpen ? 0.090f : 0f;
-        float usable = 1f - topPad;
-        return new float[]{topPad, topPad+0.162f*k*usable, topPad+0.262f*k*usable,
-                topPad+0.424f*k*usable, topPad+0.586f*k*usable, topPad+0.748f*k*usable,
-                topPad+0.8875f*k*usable, topPad+1f*k*usable};
+        // The keyboard is always anchored to the bottom of this view.
+        // In resize mode the roller occupies its own strip above the keyboard;
+        // the view/window itself is resized, so the keyboard is never double-scaled.
+        float roller = resizeRollerOpen ? dp(RESIZE_ROLLER_DP) : 0f;
+        float viewH = Math.max(1f, getHeight());
+        float keyboardTopPx = roller;
+        float keyboardH = Math.max(1f, viewH - roller);
+        return new float[]{
+                keyboardTopPx/viewH,
+                (keyboardTopPx+0.162f*keyboardH)/viewH,
+                (keyboardTopPx+0.262f*keyboardH)/viewH,
+                (keyboardTopPx+0.424f*keyboardH)/viewH,
+                (keyboardTopPx+0.586f*keyboardH)/viewH,
+                (keyboardTopPx+0.748f*keyboardH)/viewH,
+                (keyboardTopPx+0.8875f*keyboardH)/viewH,
+                1f};
     }
 
     private void drawKeyboard(Canvas c){
@@ -714,7 +725,7 @@ public class FastKeyboardView extends View {
             // Separate roller strip above the keyboard; twice the previous roller height.
             float fullTop=0f;
             float rollerBottom=top-dp(4);
-            float rollerH=dp(52);
+            float rollerH=dp(RESIZE_ROLLER_DP);
             float rollerTop=Math.max(fullTop,rollerBottom-rollerH);
             float rl=dp(18), rr=getWidth()-dp(18), cy=(rollerTop+rollerBottom)/2f;
             key(c,rl-dp(8),rollerTop,rr+dp(8),rollerBottom,"",NAVY,false);
@@ -743,12 +754,13 @@ public class FastKeyboardView extends View {
         float[] b=visibleRowBounds();
         float top=b[0]*getHeight();
         float rollerBottom=top-dp(4);
-        float rollerH=dp(52);
+        float rollerH=dp(RESIZE_ROLLER_DP);
         float rollerTop=Math.max(0f,rollerBottom-rollerH);
         float rl=dp(18), rr=getWidth()-dp(18), cy=(rollerTop+rollerBottom)/2f;
         if(x>=rl-dp(14)&&x<=rr+dp(14)&&y>=rollerTop-dp(10)&&y<=rollerBottom+dp(10)){
             float q=(x-rl)/(rr-rl);
             keyboardScale=0.70f+Math.max(0f,Math.min(1f,q))*0.30f;
+            service.setKeyboardResizeMode(true, keyboardScale);
             invalidate(); return true;
         }
         return false;
@@ -760,6 +772,9 @@ public class FastKeyboardView extends View {
         for(int i=0;i<7;i++){
             float l=left+i*(cw+g);
             key(c,l,top,l+cw,bottom,"",NAVY,false);
+            if(i<suggestions.length && suggestions[i]!=null && !suggestions[i].isEmpty()){
+                txt(c,suggestions[i],l+cw/2f,(top+bottom)/2f,Math.min(17f,(bottom-top)*.34f),NAVY);
+            }
         }
     }
 
@@ -1294,10 +1309,21 @@ public class FastKeyboardView extends View {
         return -1;
     }
     private int topToolbarIndex(float x){
-        float[] weights={0.100f,0.100f,0.090f,0.080f,0.080f,0.080f,0.090f,0.100f,0.100f,0.180f};
-        float g=dp(4),total=0f;for(float q:weights)total+=q;
-        float scale=(getWidth()-g*(weights.length+1))/total,pos=g;
-        for(int i=0;i<weights.length;i++){float cw=weights[i]*scale;if(x>=pos&&x<=pos+cw)return i;pos+=cw+g;}
+        // Must mirror drawTopToolbar() exactly: nine weighted buttons followed by
+        // a separately sized Resize button. This prevents taps from activating neighbors.
+        float[] weights={0.100f,0.100f,0.090f,0.080f,0.080f,0.080f,0.090f,0.100f,0.100f};
+        float g=dp(4);
+        float alphaEnter=(getWidth()-g*2)*.115f;
+        float alphaW=(getWidth()-g*2-alphaEnter-g*10)/11f;
+        float total=0f;for(float q:weights)total+=q;
+        float scale=(getWidth()-g*(weights.length+2)-alphaW)/total;
+        float pos=g;
+        for(int i=0;i<weights.length;i++){
+            float cw=weights[i]*scale;
+            if(x>=pos && x<=pos+cw) return i;
+            pos+=cw+g;
+        }
+        if(x>=pos && x<=pos+alphaW) return 9;
         return -1;
     }
     private int suggestionIndex(float x){
@@ -1328,10 +1354,24 @@ public class FastKeyboardView extends View {
             else if(i==6)showClipboardHistory();
             else if(i==7)showDrawer();
             else if(i==8)showMouseControls();
-            else if(i==9){ resizeRollerOpen=!resizeRollerOpen; invalidate(); }
+            else if(i==9){
+                resizeRollerOpen=!resizeRollerOpen;
+                setBackgroundColor(Color.TRANSPARENT);
+                service.setKeyboardResizeMode(resizeRollerOpen, keyboardScale);
+                invalidate();
+            }
             return;
         }
         if(row==1){
+            float left=g,right=getWidth()-g,cw=(right-left-g*6f)/7f;
+            int i=(int)((x-left)/(cw+g));
+            if(i<0 || i>=7) return;
+            float cellLeft=left+i*(cw+g);
+            if(x>cellLeft+cw) return;
+            if(i<suggestions.length){
+                String suggestion=suggestions[i];
+                if(suggestion!=null && !suggestion.isEmpty()) service.replaceCurrentWord(suggestion);
+            }
             return;
         }
         if(row==2){

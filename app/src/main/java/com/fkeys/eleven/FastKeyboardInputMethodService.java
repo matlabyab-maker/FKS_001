@@ -142,27 +142,32 @@ public class FastKeyboardInputMethodService extends InputMethodService {
         return root;
     }
 
-    public void setKeyboardScale(float scale) {
-        keyboardScale = Math.max(0.40f, Math.min(1.0f, scale));
+    public void setKeyboardResizeMode(boolean open, float scale) {
+        keyboardScale = Math.max(0.70f, Math.min(1.0f, scale));
         if (keyboard == null) return;
         int keyboardHeight = dp(380f * keyboardScale);
+        int rollerHeight = open ? dp(52f) : 0;
         ViewGroup.LayoutParams kp = keyboard.getLayoutParams();
-        if (kp == null) kp = new LinearLayout.LayoutParams(-1, keyboardHeight);
+        if (kp == null) kp = new LinearLayout.LayoutParams(-1, keyboardHeight + rollerHeight);
         kp.width = ViewGroup.LayoutParams.MATCH_PARENT;
-        kp.height = keyboardHeight;
+        kp.height = keyboardHeight + rollerHeight;
         keyboard.setLayoutParams(kp);
         try {
             android.app.Dialog dialog = getWindow();
             if (dialog != null && dialog.getWindow() != null) {
                 WindowManager.LayoutParams wp = dialog.getWindow().getAttributes();
                 wp.width = WindowManager.LayoutParams.MATCH_PARENT;
-                wp.height = keyboardHeight + (relatedBar != null && relatedBar.getVisibility() == View.VISIBLE ? dp(40) : 0);
+                wp.height = keyboardHeight + rollerHeight + (relatedBar != null && relatedBar.getVisibility() == View.VISIBLE ? dp(40) : 0);
                 wp.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
                 dialog.getWindow().setAttributes(wp);
             }
         } catch (Exception ignored) {}
         keyboard.requestLayout();
         keyboard.invalidate();
+    }
+
+    public void setKeyboardScale(float scale) {
+        setKeyboardResizeMode(false, scale);
     }
 
     public float getKeyboardScale() { return keyboardScale; }
