@@ -667,7 +667,7 @@ public class FastKeyboardView extends View {
         // space, so no content is pushed below the device navigation bar.
         float viewH = Math.max(1f, getHeight());
         if(!resizeRollerOpen){
-            return new float[]{0f,0.162f,0.262f,0.424f,0.586f,0.748f,0.8875f,1f};
+            return new float[]{0f,0.162f,0.262f,0.424f,0.586f,0.748f,0.838f,1f};
         }
         // Reserve the roller strip at the top. The keyboard height is controlled
         // only from its top edge; its bottom is always exactly at viewH.
@@ -680,7 +680,7 @@ public class FastKeyboardView extends View {
         float keyboardTopPx = viewH - keyboardH;
         // The roller stays immediately above the keyboard. If the resized keyboard
         // is shorter, the unused area remains above it, never below it.
-        float[] rows={0f,0.162f,0.262f,0.424f,0.586f,0.748f,0.8875f,1f};
+        float[] rows={0f,0.162f,0.262f,0.424f,0.586f,0.748f,0.838f,1f};
         for(int i=0;i<rows.length;i++) rows[i]=(keyboardTopPx+rows[i]*keyboardH)/viewH;
         return rows;
     }
@@ -787,7 +787,7 @@ public class FastKeyboardView extends View {
 
     private void drawNumberRow(Canvas c,float top,float bottom){
         float g=dp(4),left=g,right=getWidth()-g,backW=(right-left)*.145f,normalArea=right-left-backW-g,cw=(normalArea-g*9)/10f;
-        String[] nums={"1","2","3","4","5","6","7","8","9","0"};
+        String[] nums={"۱","۲","۳","۴","۵","۶","۷","۸","۹","۰"};
         String[] symbols={"!","@","#","$","%","^","&","*","(",")"};
         for(int i=0;i<10;i++){
             float l=left+i*(cw+g);
@@ -1174,6 +1174,9 @@ public class FastKeyboardView extends View {
     }
 
     private void showAlifArabicPicker(){
+        // Keep the editor connection that was active before the picker opens.
+        // The picker must not steal focus from the IME/editor.
+        final InputConnection targetConnection = service.getCurrentInputConnection();
         final PopupWindow[] holder=new PopupWindow[1];
         LinearLayout root=new LinearLayout(service);
         root.setOrientation(LinearLayout.HORIZONTAL);
@@ -1190,14 +1193,20 @@ public class FastKeyboardView extends View {
             lp.setMargins(dp(2),0,dp(2),0);
             root.addView(b,lp);
             b.setOnClickListener(view -> {
-                service.typeUnit(v);
+                if (targetConnection != null) {
+                    service.typeTo(targetConnection, v);
+                } else {
+                    service.typeUnit(v);
+                }
                 if(holder[0]!=null) holder[0].dismiss();
             });
         }
-        PopupWindow popup=new PopupWindow(root,WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,true);
+        PopupWindow popup=new PopupWindow(root,WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,false);
         holder[0]=popup;
         popup.setBackgroundDrawable(new ColorDrawable(Color.WHITE));
         popup.setOutsideTouchable(true);
+        popup.setInputMethodMode(PopupWindow.INPUT_METHOD_NOT_NEEDED);
+        popup.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
         popup.setElevation(dp(8));
         int[] loc=new int[2]; getLocationOnScreen(loc);
         float[] b=visibleRowBounds();
@@ -1387,7 +1396,7 @@ public class FastKeyboardView extends View {
             if(x>=right-backW){startBackspace();return;}
             int i=-1;for(int k=0;k<10;k++){float l=left+k*(cw+g);if(x>=l&&x<=l+cw){i=k;break;}}
             if(i<0)return;
-            String[] keys={"1","2","3","4","5","6","7","8","9","0"};
+            String[] keys={"۱","۲","۳","۴","۵","۶","۷","۸","۹","۰"};
             String[] symbols={"!","@","#","$","%","^","&","*","(",")"};
             service.type((capsMode!=0 || capsHold)?symbols[i]:keys[i]);
             if(capsMode==1 && !capsHold) capsMode=0;
@@ -1594,7 +1603,67 @@ for(String s:moreSymbols){ Button b=new Button(service); b.setText(s); b.setText
     }
 
     private void showArabicHarakat() {
-        // Arabic Harakat UI placeholder; keeps the requested action available.
+        final String[] harakat = {
+                "َ", "ً", "ُ", "ٌ", "ِ", "ٍ", "ْ", "ّ",
+                "ٰ", "ٔ", "ٕ", "ـ", "ٖ", "ٗ", "٘", "ٙ"
+        };
+        LinearLayout root = new LinearLayout(service);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(8, 8, 8, 8);
+
+        final Button[] headerClose = new Button[1];
+        addPopupHeader(root, "حرکت‌ها و صداهای عربی", headerClose);
+
+        TextView hint = new TextView(service);
+        hint.setText("برای نوشتن، روی نشانه موردنظر بزنید");
+        hint.setTextSize(15);
+        hint.setTextColor(NAVY);
+        hint.setGravity(Gravity.CENTER);
+        root.addView(hint, new LinearLayout.LayoutParams(-1, dp(42)));
+
+        GridLayout grid = new GridLayout(service);
+        grid.setColumnCount(4);
+        grid.setPadding(6, 6, 6, 6);
+
+        for (String mark : harakat) {
+            Button b = new Button(service);
+            b.setText(mark);
+            b.setTextSize(27);
+            b.setTextColor(NAVY);
+            b.setAllCaps(false);
+            b.setPadding(0, 0, 0, 0);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(Color.rgb(250, 249, 244));
+            bg.setCornerRadius(dp(6));
+            bg.setStroke(dp(1), Color.LTGRAY);
+            b.setBackground(bg);
+            b.setOnClickListener(v -> service.typeUnit(mark));
+            GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
+            lp.width = 0;
+            lp.height = dp(64);
+            lp.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
+            lp.setMargins(dp(3), dp(3), dp(3), dp(3));
+            grid.addView(b, lp);
+        }
+
+        ScrollView scroll = new ScrollView(service);
+        scroll.addView(grid, new ScrollView.LayoutParams(-1, -2));
+        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
+
+        final PopupWindow popup = new PopupWindow(
+                root,
+                Math.min(dp(390), Math.max(dp(300), getWidth() - dp(16))),
+                Math.min(dp(520), Math.max(dp(340), getHeight() - dp(16))),
+                false);
+        popup.setBackgroundDrawable(new ColorDrawable(Color.WHITE));
+        popup.setTouchable(true);
+        popup.setFocusable(false);
+        popup.setOutsideTouchable(true);
+        popup.setInputMethodMode(WindowManager.LayoutParams.INPUT_METHOD_NOT_NEEDED);
+        popup.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
+        popup.setElevation(dp(10));
+        headerClose[0].setOnClickListener(v -> popup.dismiss());
+        popup.showAtLocation(this, Gravity.CENTER, 0, 0);
     }
 
     private void addEmojiButton(android.widget.GridLayout grid, String emoji) {
